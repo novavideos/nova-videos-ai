@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  getAuth, 
   onAuthStateChanged, 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
@@ -40,6 +39,10 @@ function AuthScreen({ auth }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!auth) {
+      setError("Authentication service is not ready. Please try again.");
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -93,7 +96,6 @@ function AuthScreen({ auth }) {
 
 
 // --- Main Application Screens (Dashboard, etc.) ---
-// Mock Data - We will replace this with a real database later
 const mockProjects = [
   { id: 1, name: 'My Latest Podcast', status: 'Ready to Review', created: 'Oct 15, 2025', clips: [
       { id: 'c1', timestamp: 45, text: 'The first step is always the hardest, but putting in the work is what matters.' },
@@ -132,7 +134,6 @@ function Dashboard({ setPage, setProject, user, auth }) {
           </Button>
         </div>
       </div>
-      {/* Rest of the Dashboard component from before... */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div onClick={() => setPage('repurpose-upload')} className="cursor-pointer bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200 flex flex-col items-center justify-center text-center">
             <Icon name="video" className="w-12 h-12 text-indigo-500 mb-4" />
@@ -166,7 +167,6 @@ function Dashboard({ setPage, setProject, user, auth }) {
     </div>
   );
 }
-// ... The other components (Editor, UploadScreen, etc.) remain the same
 function Editor({ project, setPage }) {
   if (!project || !project.clips || project.clips.length === 0) {
     return (
@@ -316,7 +316,7 @@ function DownloadScreen({ project, setPage }) {
 // --- The Main App Component ---
 
 function MainApp({ user, auth }) {
-  const [page, setPage] = useState('dashboard'); // 'dashboard', 'editor', 'download', 'repurpose-upload', 'ai-creation'
+  const [page, setPage] = useState('dashboard');
   const [currentProject, setCurrentProject] = useState(null);
 
   const renderPage = () => {
@@ -342,35 +342,25 @@ function MainApp({ user, auth }) {
   );
 }
 
-export default function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [auth, setAuth] = useState(null);
-
-  useEffect(() => {
-    try {
-      setAuth(getAuth());
-    } catch(e) {
-      console.error("Firebase initialization error:", e)
-      // If getAuth fails, it means initializeApp wasn't called.
-      // We can't proceed, so we stop loading and show an error or auth screen.
-      setLoading(false);
-    }
-  }, []);
+export default function App({ auth }) {
+  const [user, setUser] = useState(undefined);
 
   useEffect(() => {
     if (auth) {
       const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
         setUser(currentUser);
-        setLoading(false);
       });
       return () => unsubscribe(); // Cleanup subscription on unmount
+    } else {
+        // If no auth object is passed, we know there is no user.
+        setUser(null);
     }
   }, [auth]);
 
-  if (loading) {
+  // We show a loading screen until the user state is determined (either null or a user object)
+  if (user === undefined) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
-
+  
   return user ? <MainApp user={user} auth={auth} /> : <AuthScreen auth={auth} />;
 }
