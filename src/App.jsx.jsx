@@ -1,5 +1,98 @@
 import React, { useState, useEffect } from 'react';
+import { 
+  getAuth, 
+  onAuthStateChanged, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword,
+  signOut
+} from "firebase/auth";
 
+// --- Reusable Components ---
+
+const Icon = ({ name, className = "w-6 h-6" }) => {
+  const icons = {
+    upload: <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l-3.75 3.75M12 9.75l3.75 3.75M17.25 12c0 2.895-2.355 5.25-5.25 5.25S6.75 14.895 6.75 12 9.105 6.75 12 6.75s5.25 2.355 5.25 5.25z" />,
+    magic: <path strokeLinecap="round" strokeLinejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.998 15.998 0 011.622-3.385m5.043.025a15.998 15.998 0 001.622-3.385m3.388 1.62a15.998 15.998 0 00-1.622-3.385m-5.043-.025a15.998 15.998 0 01-3.388-1.621m-1.622 3.385a15.998 15.998 0 01-1.622-3.385m1.622 3.385a15.998 15.998 0 003.388 1.622m-3.388-1.622a15.998 15.998 0 013.388 1.622m0 0a15.998 15.998 0 003.388-1.622m-3.388 1.622a15.998 15.998 0 01-3.388-1.622m5.043.025a15.998 15.998 0 00-1.622-3.385" />,
+    download: <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />,
+    video: <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9A2.25 2.25 0 0013.5 5.25h-9A2.25 2.25 0 002.25 7.5v9A2.25 2.25 0 004.5 18.75z" />,
+    logout: <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+  };
+  return <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>{icons[name]}</svg>;
+};
+
+const Button = ({ children, onClick, variant = 'primary', className = '', type = 'button', disabled = false }) => {
+  const base = "px-4 py-2 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed";
+  const variants = {
+    primary: "bg-indigo-600 text-white hover:bg-indigo-700",
+    secondary: "bg-gray-200 text-gray-800 hover:bg-gray-300",
+  };
+  return <button type={type} onClick={onClick} disabled={disabled} className={`${base} ${variants[variant]} ${className}`}>{children}</button>;
+};
+
+
+// --- Authentication Screen ---
+function AuthScreen({ auth }) {
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      if (isLogin) {
+        await signInWithEmailAndPassword(auth, email, password);
+      } else {
+        await createUserWithEmailAndPassword(auth, email, password);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
+        <div>
+          <h2 className="text-center text-3xl font-extrabold text-gray-900">
+            {isLogin ? 'Sign in to your account' : 'Create a new account'}
+          </h2>
+        </div>
+        <form className="space-y-6" onSubmit={handleSubmit}>
+          <div>
+            <label htmlFor="email-address" className="sr-only">Email address</label>
+            <input id="email-address" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" placeholder="Email address" />
+          </div>
+          <div>
+            <label htmlFor="password" className="sr-only">Password</label>
+            <input id="password" name="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" placeholder="Password" />
+          </div>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          <div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Processing...' : (isLogin ? 'Sign in' : 'Create account')}
+            </Button>
+          </div>
+        </form>
+        <div className="text-sm text-center">
+          <button onClick={() => setIsLogin(!isLogin)} className="font-medium text-indigo-600 hover:text-indigo-500">
+            {isLogin ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// --- Main Application Screens (Dashboard, etc.) ---
 // Mock Data - We will replace this with a real database later
 const mockProjects = [
   { id: 1, name: 'My Latest Podcast', status: 'Ready to Review', created: 'Oct 15, 2025', clips: [
@@ -11,30 +104,7 @@ const mockProjects = [
   { id: 3, name: 'Marketing Q&A', status: 'Exported', created: 'Oct 14, 2025', clips: [] },
 ];
 
-// --- Reusable Components ---
-
-const Icon = ({ name, className = "w-6 h-6" }) => {
-  const icons = {
-    upload: <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l-3.75 3.75M12 9.75l3.75 3.75M17.25 12c0 2.895-2.355 5.25-5.25 5.25S6.75 14.895 6.75 12 9.105 6.75 12 6.75s5.25 2.355 5.25 5.25z" />,
-    magic: <path strokeLinecap="round" strokeLinejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.998 15.998 0 011.622-3.385m5.043.025a15.998 15.998 0 001.622-3.385m3.388 1.62a15.998 15.998 0 00-1.622-3.385m-5.043-.025a15.998 15.998 0 01-3.388-1.621m-1.622 3.385a15.998 15.998 0 01-1.622-3.385m1.622 3.385a15.998 15.998 0 003.388 1.622m-3.388-1.622a15.998 15.998 0 013.388 1.622m0 0a15.998 15.998 0 003.388-1.622m-3.388 1.622a15.998 15.998 0 01-3.388-1.622m5.043.025a15.998 15.998 0 00-1.622-3.385" />,
-    download: <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />,
-    video: <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9A2.25 2.25 0 0013.5 5.25h-9A2.25 2.25 0 002.25 7.5v9A2.25 2.25 0 004.5 18.75z" />,
-  };
-  return <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>{icons[name]}</svg>;
-};
-
-const Button = ({ children, onClick, variant = 'primary', className = '' }) => {
-  const base = "px-4 py-2 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2";
-  const variants = {
-    primary: "bg-indigo-600 text-white hover:bg-indigo-700",
-    secondary: "bg-gray-200 text-gray-800 hover:bg-gray-300",
-  };
-  return <button onClick={onClick} className={`${base} ${variants[variant]} ${className}`}>{children}</button>;
-};
-
-// --- Main Pages / Views ---
-
-function Dashboard({ setPage, setProject }) {
+function Dashboard({ setPage, setProject, user, auth }) {
   const projects = mockProjects;
 
   const handleSelectProject = (proj) => {
@@ -46,18 +116,24 @@ function Dashboard({ setPage, setProject }) {
     setProject(proj);
   };
 
+  const handleSignOut = async () => {
+    await signOut(auth);
+  };
+
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
         <div className="flex items-center gap-4">
-          <p className="text-gray-600">user@novavideos.ai</p>
-          <Button>Upgrade</Button>
+          <p className="text-gray-600 hidden sm:block">{user.email}</p>
+          <Button onClick={handleSignOut} variant="secondary">
+            <Icon name="logout" className="w-5 h-5" />
+            <span className="hidden sm:inline">Sign Out</span>
+          </Button>
         </div>
       </div>
-
+      {/* Rest of the Dashboard component from before... */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* New Project Cards */}
         <div onClick={() => setPage('repurpose-upload')} className="cursor-pointer bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200 flex flex-col items-center justify-center text-center">
             <Icon name="video" className="w-12 h-12 text-indigo-500 mb-4" />
             <h2 className="text-xl font-semibold text-gray-800">Repurpose Video</h2>
@@ -69,7 +145,6 @@ function Dashboard({ setPage, setProject }) {
             <p className="text-gray-500 mt-2">Generate a new video with AI avatars and voiceovers.</p>
         </div>
       </div>
-
       <h2 className="text-2xl font-bold text-gray-800 mt-12 mb-6">My Projects</h2>
       <div className="bg-white rounded-lg shadow-md border border-gray-200">
         <ul className="divide-y divide-gray-200">
@@ -91,7 +166,7 @@ function Dashboard({ setPage, setProject }) {
     </div>
   );
 }
-
+// ... The other components (Editor, UploadScreen, etc.) remain the same
 function Editor({ project, setPage }) {
   if (!project || !project.clips || project.clips.length === 0) {
     return (
@@ -238,7 +313,9 @@ function DownloadScreen({ project, setPage }) {
     );
 }
 
-export default function App() {
+// --- The Main App Component ---
+
+function MainApp({ user, auth }) {
   const [page, setPage] = useState('dashboard'); // 'dashboard', 'editor', 'download', 'repurpose-upload', 'ai-creation'
   const [currentProject, setCurrentProject] = useState(null);
 
@@ -254,13 +331,46 @@ export default function App() {
         return <AiCreationScreen setPage={setPage} />;
       case 'dashboard':
       default:
-        return <Dashboard setPage={setPage} setProject={setCurrentProject} />;
+        return <Dashboard setPage={setPage} setProject={setCurrentProject} user={user} auth={auth} />;
     }
   };
-
+  
   return (
     <div className="bg-gray-50 min-h-screen font-sans">
       {renderPage()}
     </div>
   );
+}
+
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [auth, setAuth] = useState(null);
+
+  useEffect(() => {
+    try {
+      setAuth(getAuth());
+    } catch(e) {
+      console.error("Firebase initialization error:", e)
+      // If getAuth fails, it means initializeApp wasn't called.
+      // We can't proceed, so we stop loading and show an error or auth screen.
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (auth) {
+      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        setUser(currentUser);
+        setLoading(false);
+      });
+      return () => unsubscribe(); // Cleanup subscription on unmount
+    }
+  }, [auth]);
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  return user ? <MainApp user={user} auth={auth} /> : <AuthScreen auth={auth} />;
 }
